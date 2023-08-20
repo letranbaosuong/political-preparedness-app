@@ -8,6 +8,7 @@ import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Parcelable
 import android.util.Log
 import android.view.*
 import android.view.inputmethod.InputMethodManager
@@ -30,58 +31,79 @@ class RepresentativeFragment : Fragment() {
     companion object {
         //TODO: Add Constant for Location request
         private const val REQUEST_LOCATION_PERMISSION = 1
+        private const val motionLayoutStateKey = "motionLayoutState"
+        private const val recyclerViewStateKey = "recyclerViewState"
+        private const val addressLine1Key = "line1"
+        private const val addressLine2Key = "line2"
+        private const val addressCityKey = "city"
+        private const val addressStateKey = "state"
+        private const val addressZipKey = "zip"
     }
 
     //TODO: Declare ViewModel
     private val viewModel: RepresentativeViewModel by activityViewModels()
     private var addressUser: Address? = null
+    private lateinit var fragmentRepresentativeBinding: FragmentRepresentativeBinding
+    private var recyclerViewState: Parcelable? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View {
-        // Restore data from onSaveInstanceState
-        savedInstanceState?.let {
-            addressUser = Address(
-                line1 = it.getString("line1") ?: "",
-                line2 = it.getString("line2") ?: "",
-                city = it.getString("city") ?: "",
-                state = it.getString("state") ?: "",
-                zip = it.getString("zip") ?: "",
-            )
-        }
 
         //TODO: Establish bindings
-        val binding: FragmentRepresentativeBinding = DataBindingUtil.inflate(
+        fragmentRepresentativeBinding = DataBindingUtil.inflate(
             inflater, R.layout.fragment_representative, container, false
         )
 
         //TODO: Define and assign Representative adapter
-        binding.representativeViewModel = viewModel
-        binding.lifecycleOwner = this
+        fragmentRepresentativeBinding.representativeViewModel = viewModel
+        fragmentRepresentativeBinding.lifecycleOwner = this
 
         //TODO: Populate Representative adapter
         val representativeAdapter = RepresentativeListAdapter()
-        binding.representativeRecycler.adapter = representativeAdapter
+        fragmentRepresentativeBinding.representativeRecycler.adapter = representativeAdapter
         val adapter = ArrayAdapter.createFromResource(
             requireContext(),
             R.array.states,
             android.R.layout.simple_spinner_item,
         )
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.state.adapter = adapter
-        binding.state.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                viewModel.setState(parent?.getItemAtPosition(position)?.toString() ?: "")
-            }
+        fragmentRepresentativeBinding.state.adapter = adapter
+        fragmentRepresentativeBinding.state.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    viewModel.setState(parent?.getItemAtPosition(position)?.toString() ?: "")
+                }
 
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        // Restore data from onSaveInstanceState
+        savedInstanceState?.let {
+            try {
+                addressUser = Address(
+                    line1 = it.getString(addressLine1Key) ?: "",
+                    line2 = it.getString(addressLine2Key) ?: "",
+                    city = it.getString(addressCityKey) ?: "",
+                    state = it.getString(addressStateKey) ?: "",
+                    zip = it.getString(addressZipKey) ?: "",
+                )
+                val motionLayoutState = it.getInt(motionLayoutStateKey, -1)
+                if (motionLayoutState != -1) {
+                    fragmentRepresentativeBinding.representativeMotionLayout.transitionToState(
+                        motionLayoutState
+                    )
+                }
+                recyclerViewState = it.getParcelable(recyclerViewStateKey)
+            } catch (e: Exception) {
+                Log.e("savedInstanceState ERROR:", "${e.message}")
+            }
         }
         viewModel.addressInputLiveData.observe(viewLifecycleOwner) { addressUser = it }
         viewModel.representativesLiveData.observe(viewLifecycleOwner) {
@@ -89,24 +111,22 @@ class RepresentativeFragment : Fragment() {
         }
 
         //TODO: Establish button listeners for field and location search
-        binding.buttonLocation.setOnClickListener {
+        fragmentRepresentativeBinding.buttonLocation.setOnClickListener {
             hideKeyboard()
             checkLocationPermissions()
         }
-        binding.buttonSearch.setOnClickListener {
+        fragmentRepresentativeBinding.buttonSearch.setOnClickListener {
             if (addressUser != null) {
                 viewModel.fetchRepresentatives(addressUser!!)
             }
         }
-        return binding.root
+        return fragmentRepresentativeBinding.root
 
     }
 
     @Deprecated("Deprecated in Java")
     override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         //TODO: Handle location permission result to get location on permission granted
@@ -190,11 +210,26 @@ class RepresentativeFragment : Fragment() {
         super.onSaveInstanceState(outState)
         // Save data to the addressUser model
         addressUser?.let {
-            outState.putString("line1", it.line1)
-            outState.putString("line2", it.line2)
-            outState.putString("city", it.city)
-            outState.putString("state", it.state)
-            outState.putString("zip", it.zip)
+            outState.putString(addressLine1Key, it.line1)
+            outState.putString(addressLine2Key, it.line2)
+            outState.putString(addressCityKey, it.city)
+            outState.putString(addressStateKey, it.state)
+            outState.putString(addressZipKey, it.zip)
+        }
+        val mlCurrentState = fragmentRepresentativeBinding.representativeMotionLayout.currentState
+        outState.putInt(motionLayoutStateKey, mlCurrentState)
+        outState.putParcelable(
+            recyclerViewStateKey,
+            fragmentRepresentativeBinding.representativeRecycler.layoutManager?.onSaveInstanceState(),
+        )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        recyclerViewState?.let {
+            fragmentRepresentativeBinding.representativeRecycler.layoutManager?.onRestoreInstanceState(
+                it
+            )
         }
     }
 
