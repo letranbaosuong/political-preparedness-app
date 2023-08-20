@@ -34,12 +34,23 @@ class RepresentativeFragment : Fragment() {
 
     //TODO: Declare ViewModel
     private val viewModel: RepresentativeViewModel by activityViewModels()
+    private var addressUser: Address? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View {
+        // Restore data from onSaveInstanceState
+        savedInstanceState?.let {
+            addressUser = Address(
+                line1 = it.getString("line1") ?: "",
+                line2 = it.getString("line2") ?: "",
+                city = it.getString("city") ?: "",
+                state = it.getString("state") ?: "",
+                zip = it.getString("zip") ?: "",
+            )
+        }
 
         //TODO: Establish bindings
         val binding: FragmentRepresentativeBinding = DataBindingUtil.inflate(
@@ -51,7 +62,6 @@ class RepresentativeFragment : Fragment() {
         binding.lifecycleOwner = this
 
         //TODO: Populate Representative adapter
-        var addressUser: Address? = null
         val representativeAdapter = RepresentativeListAdapter()
         binding.representativeRecycler.adapter = representativeAdapter
         val adapter = ArrayAdapter.createFromResource(
@@ -68,7 +78,7 @@ class RepresentativeFragment : Fragment() {
                 position: Int,
                 id: Long
             ) {
-                viewModel.getState(parent?.getItemAtPosition(position)?.toString() ?: "")
+                viewModel.setState(parent?.getItemAtPosition(position)?.toString() ?: "")
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
@@ -144,7 +154,7 @@ class RepresentativeFragment : Fragment() {
         //TODO: The geoCodeLocation method is a helper function to change the lat/long location to a human readable street address
         if (lastKnownLocation != null) {
             geoCodeLocation(lastKnownLocation).let { address ->
-                viewModel.getAddress(address)
+                viewModel.setAddress(address)
                 viewModel.fetchRepresentatives(address)
             }
         } else {
@@ -174,6 +184,18 @@ class RepresentativeFragment : Fragment() {
     private fun hideKeyboard() {
         val imm = activity?.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(requireView().windowToken, 0)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // Save data to the addressUser model
+        addressUser?.let {
+            outState.putString("line1", it.line1)
+            outState.putString("line2", it.line2)
+            outState.putString("city", it.city)
+            outState.putString("state", it.state)
+            outState.putString("zip", it.zip)
+        }
     }
 
 }

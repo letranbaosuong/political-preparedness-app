@@ -33,12 +33,12 @@ class RepresentativeViewModel : ViewModel() {
      *     Note: _representatives in the above code represents the established mutable live data housing representatives
      */
     //TODO: Create function get address from geo location
-    fun getState(state: String) {
+    fun setState(state: String) {
         _addressInputMutableLiveData.value?.state = state
     }
 
     //TODO: Create function to get address from individual fields
-    fun getAddress(address: Address) {
+    fun setAddress(address: Address) {
         _addressInputMutableLiveData.value = address
     }
 
